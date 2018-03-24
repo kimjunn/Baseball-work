@@ -1,0 +1,184 @@
+---
+title: "Data Analysis - Baseball Savant"
+output: html_notebook
+---
+
+```{r}
+setwd("~/rscript")
+```
+
+
+```{r}
+library(tidyverse)
+jv2017 <- read_csv("data/2017_verlander.csv",
+                   col_types = cols(
+                     release_speed = col_double(), 
+                     pfx_x = col_double(),
+                     pfx_z = col_double(),
+                     release_spin_rate = col_double(),
+                     launch_angle = col_double(),
+                     launch_speed = col_double()))
+
+jv2016 <- read_csv("data/2016_verlander.csv",
+                   col_types = cols(
+                     release_speed = col_double(), 
+                     pfx_x = col_double(),
+                     pfx_z = col_double(),
+                     release_spin_rate = col_double(),
+                     launch_angle = col_double(),
+                     launch_speed = col_double()))
+
+jv2015 <- read_csv("data/2015_verlander.csv",
+                   col_types = cols(
+                     release_speed = col_double(), 
+                     pfx_x = col_double(),
+                     pfx_z = col_double(),
+                     release_spin_rate = col_double(),
+                     launch_angle = col_double(),
+                     launch_speed = col_double()))
+```
+
+```{r}
+TH <- theme(
+  plot.title = element_text(
+    colour = "red",
+    size = 16,
+    hjust = 0.5,
+    vjust = 0.8,
+    angle = 0
+  )
+)
+```
+
+```{r}
+jv <- rbind(data.frame(jv2015, season=2015),
+            data.frame(jv2016, season=2016),
+            data.frame(jv2017, season=2017))
+```
+
+```{r}
+require(cowplot)
+ggplot(filter(jv, pitch_type %in%
+                c("CH", "CU", "FF", "SL")), 
+       aes(pitch_type,
+           y = (..count..) / sum(..count..))) +
+  geom_bar() +
+  facet_wrap(~ season, ncol = 1) +
+  ggtitle("Frequencies of Pitch Types") + TH
+
+```
+
+```{r}
+filter(jv, pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>% 
+  ggplot(aes(pitch_type, release_speed, 
+             color=factor(season))) +
+  geom_boxplot() + coord_flip() +
+  ylim(70.0, 100.0) + TH + 
+  ggtitle("Release Speeds for Each Pitch Type") 
+  #draw_image("jv.jpg", x = 3, y = 75, scale=15) 
+
+```
+
+```{r}
+p1 <- filter(jv, pitch_type %in%
+               c("CH", "CU", "FF", "SL")) %>%
+  ggplot(aes(pitch_type, pfx_x,
+             color=factor(season))) +
+  geom_boxplot() + coord_flip() + TH +
+  ggtitle("Horizontal Break for Each Pitch Type")
+
+p2 <- filter(jv, pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>% 
+  ggplot(aes(pitch_type, pfx_z, 
+             color=factor(season))) +
+  geom_boxplot() + coord_flip() + TH +
+  ggtitle("Vertical Break for Each Pitch Type")
+
+plot_grid(p1, p2, ncol=1)
+  
+```
+
+```{r}
+filter(jv, pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>%
+        ggplot(aes(pitch_type, release_spin_rate, color=factor(season))) +
+        geom_boxplot() + coord_flip()
+```
+
+```{r}
+jv %>%
+  mutate(swing = ifelse(description %in%
+                          c("foul", "foul_bunt", "foul_tip", "hit_into_play",
+                            "hit_into_play_score", "missed_bunt", "swinging_strike", "swinging_strike_blocked"),
+                        1, 0),
+         miss = ifelse(description %in%
+                         c("missed_bunt", "swinging_strike",
+                           "swinging_strike_blocked"), 1, 0)
+  ) -> jv
+```
+
+```{r}
+jv %>% group_by(pitch_type) %>%
+  summarize(S = sum(swing),
+            M = sum(miss))
+```
+
+```{r}
+filter(jv, swing==1,
+       pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>%
+  group_by(season, pitch_type) %>%
+  summarize(Miss_Rate = 
+              mean(miss, na.rm = TRUE)) %>%
+  ggplot(aes(pitch_type, Miss_Rate,
+             color=factor(season))) +
+  geom_point(size=3) + coord_flip() + TH +
+  ggtitle("Miss Rates for Each Pitch Type")
+```
+
+```{r}
+jv %>%
+  mutate(HR = ifelse(events == "home_run",
+                     1, 0)) -> jv
+
+```
+
+```{r}
+filter(jv, type == "X",
+       pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>% 
+  group_by(season, pitch_type) %>%
+  summarize(N = n(),
+            HR_count = sum(HR),
+            HR_Rate = mean(HR)) %>% 
+  ggplot(aes(pitch_type, HR_Rate, 
+             color=factor(season),
+             label = HR_count)) +
+  ggtitle("HR Rates by Pitch Type and Season") +
+  geom_point(size=3) + coord_flip() + TH +
+geom_label()
+```
+
+```{r}
+filter(jv, swing == 1, miss == 0,
+       pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>% 
+  group_by(season, pitch_type) %>%
+  ggplot(aes(pitch_type, launch_speed, 
+             color=factor(season))) +
+  geom_boxplot() + coord_flip() + TH +
+ggtitle("Exit Velocities for Each Pitch Type")
+```
+
+```{r}
+filter(jv, swing == 1, miss == 0,
+       pitch_type %in%
+         c("CH", "CU", "FF", "SL")) %>% 
+  group_by(season, pitch_type) %>%
+  ggplot(aes(pitch_type, launch_angle, 
+             color=factor(season))) +
+  geom_boxplot() + coord_flip() + TH +
+ggtitle("Launch Angles for Each Pitch Type")
+```
+
